@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>원소기호 마스터</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;600;700&display=swap');
+  * { box-sizing: border-box; }
+  html, body, #root { height: 100%; margin: 0; }
+  body { background: #EEF2F4; }
+  @media (prefers-reduced-motion: reduce){ *{transition:none!important} }
+  button:focus-visible{ outline:3px solid #1A2B3C; outline-offset:2px; }
+</style>
+<!-- React + Babel (cdnjs) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.10/babel.min.js"></script>
+<!-- Firebase (gstatic) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useMemo, useEffect, useRef } = React;
+
+/* ============================================================
+   ⬇⬇⬇  여기에 본인 Firebase 설정을 붙여넣으세요  ⬇⬇⬇
+   (Firebase 콘솔 > 프로젝트 설정 > 웹 앱 > firebaseConfig)
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyBbfgZxVutrbYtuYLhGG8VTD_jQBhCVHGA",
+  authDomain: "element-game-4b45e.firebaseapp.com",
+  projectId: "element-game-4b45e",
+  storageBucket: "element-game-4b45e.firebasestorage.app",
+  messagingSenderId: "448034181816",
+  appId: "1:448034181816:web:b7679498b043ebc9445a4d",
+  measurementId: "G-JEJNTNVLBQ"
+};
+/* ============================================================ */
+
+let db = null, firebaseReady = false;
+try {
+  if (window.firebase && FIREBASE_CONFIG.apiKey && !FIREBASE_CONFIG.apiKey.includes("YOUR_")) {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.firestore();
+    firebaseReady = true;
+  }
+} catch (e) { console.warn("Firebase 초기화 실패:", e); }
+
+const INK = "#1A2B3C", PAPER = "#EEF2F4", CORRECT = "#2E9E6B", WRONG = "#D64545", CATION = "#CF5C36", ANION = "#3D6FA0";
+
+const CATEGORIES = {
+  nonmetal:{label:"비금속",color:"#5B8C5A"}, noble:{label:"비활성기체",color:"#7B6BB0"},
+  alkali:{label:"알칼리금속",color:"#E0533D"}, alkaline:{label:"알칼리토금속",color:"#E8943A"},
+  metalloid:{label:"준금속",color:"#3D9BA8"}, halogen:{label:"할로젠",color:"#C9508A"},
+  transition:{label:"전이금속",color:"#4A6FA5"}, posttrans:{label:"전이후금속",color:"#6B7A8F"},
+};
+
+const ELEMENTS = [
+  {num:1,sym:"H",ko:"수소",cat:"nonmetal",g:1,p:1},
+  {num:2,sym:"He",ko:"헬륨",cat:"noble",g:18,p:1},
+  {num:3,sym:"Li",ko:"리튬",cat:"alkali",g:1,p:2},
+  {num:4,sym:"Be",ko:"베릴륨",cat:"alkaline",g:2,p:2},
+  {num:5,sym:"B",ko:"붕소",cat:"metalloid",g:13,p:2},
+  {num:6,sym:"C",ko:"탄소",cat:"nonmetal",g:14,p:2},
+  {num:7,sym:"N",ko:"질소",cat:"nonmetal",g:15,p:2},
+  {num:8,sym:"O",ko:"산소",cat:"nonmetal",g:16,p:2},
+  {num:9,sym:"F",ko:"플루오린",alt:"불소",cat:"halogen",g:17,p:2},
+  {num:10,sym:"Ne",ko:"네온",cat:"noble",g:18,p:2},
+  {num:11,sym:"Na",ko:"소듐",alt:"나트륨",cat:"alkali",g:1,p:3,tip:"라틴어 natrium에서 — 그래서 Na"},
+  {num:12,sym:"Mg",ko:"마그네슘",cat:"alkaline",g:2,p:3},
+  {num:13,sym:"Al",ko:"알루미늄",cat:"posttrans",g:13,p:3},
+  {num:14,sym:"Si",ko:"규소",cat:"metalloid",g:14,p:3},
+  {num:15,sym:"P",ko:"인",cat:"nonmetal",g:15,p:3},
+  {num:16,sym:"S",ko:"황",cat:"nonmetal",g:16,p:3},
+  {num:17,sym:"Cl",ko:"염소",cat:"halogen",g:17,p:3},
+  {num:18,sym:"Ar",ko:"아르곤",cat:"noble",g:18,p:3},
+  {num:19,sym:"K",ko:"포타슘",alt:"칼륨",cat:"alkali",g:1,p:4,tip:"라틴어 kalium에서 — 그래서 K"},
+  {num:20,sym:"Ca",ko:"칼슘",cat:"alkaline",g:2,p:4},
+  {num:24,sym:"Cr",ko:"크로뮴",alt:"크롬",cat:"transition",g:6,p:4},
+  {num:25,sym:"Mn",ko:"망가니즈",alt:"망간",cat:"transition",g:7,p:4},
+  {num:26,sym:"Fe",ko:"철",cat:"transition",g:8,p:4,tip:"라틴어 ferrum에서 — 그래서 Fe"},
+  {num:29,sym:"Cu",ko:"구리",cat:"transition",g:11,p:4,tip:"라틴어 cuprum에서 — 그래서 Cu"},
+  {num:30,sym:"Zn",ko:"아연",cat:"transition",g:12,p:4},
+  {num:47,sym:"Ag",ko:"은",cat:"transition",g:11,p:5,tip:"라틴어 argentum에서 — 그래서 Ag"},
+  {num:50,sym:"Sn",ko:"주석",cat:"posttrans",g:14,p:5,tip:"라틴어 stannum에서 — 그래서 Sn"},
+  {num:53,sym:"I",ko:"아이오딘",alt:"요오드",cat:"halogen",g:17,p:5},
+  {num:56,sym:"Ba",ko:"바륨",cat:"alkaline",g:2,p:6},
+  {num:78,sym:"Pt",ko:"백금",cat:"transition",g:10,p:6},
+  {num:79,sym:"Au",ko:"금",cat:"transition",g:11,p:6,tip:"라틴어 aurum에서 — 그래서 Au"},
+  {num:80,sym:"Hg",ko:"수은",cat:"transition",g:12,p:6,tip:"라틴어 hydrargyrum(물+은)에서 — 그래서 Hg"},
+  {num:82,sym:"Pb",ko:"납",cat:"posttrans",g:14,p:6,tip:"라틴어 plumbum에서 — 그래서 Pb"},
+];
+
+const IONS = [
+  {base:"H",charge:"+",ko:"수소 이온",type:"cation",basic:true},
+  {base:"Na",charge:"+",ko:"소듐 이온",alt:"나트륨",type:"cation",basic:true},
+  {base:"K",charge:"+",ko:"포타슘 이온",alt:"칼륨",type:"cation",basic:true},
+  {base:"Li",charge:"+",ko:"리튬 이온",type:"cation"},
+  {base:"Ag",charge:"+",ko:"은 이온",type:"cation"},
+  {base:"NH₄",charge:"+",ko:"암모늄 이온",type:"cation",basic:true},
+  {base:"Mg",charge:"2+",ko:"마그네슘 이온",type:"cation",basic:true},
+  {base:"Ca",charge:"2+",ko:"칼슘 이온",type:"cation",basic:true},
+  {base:"Cu",charge:"2+",ko:"구리 이온",type:"cation"},
+  {base:"Zn",charge:"2+",ko:"아연 이온",type:"cation"},
+  {base:"Fe",charge:"2+",ko:"철(Ⅱ) 이온",type:"cation"},
+  {base:"Fe",charge:"3+",ko:"철(Ⅲ) 이온",type:"cation"},
+  {base:"Ba",charge:"2+",ko:"바륨 이온",type:"cation"},
+  {base:"Al",charge:"3+",ko:"알루미늄 이온",type:"cation",basic:true},
+  {base:"Cl",charge:"-",ko:"염화 이온",type:"anion",basic:true},
+  {base:"F",charge:"-",ko:"플루오린화 이온",type:"anion"},
+  {base:"OH",charge:"-",ko:"수산화 이온",type:"anion",basic:true},
+  {base:"NO₃",charge:"-",ko:"질산 이온",type:"anion",basic:true},
+  {base:"HCO₃",charge:"-",ko:"탄산수소 이온",type:"anion"},
+  {base:"O",charge:"2-",ko:"산화 이온",type:"anion",basic:true},
+  {base:"S",charge:"2-",ko:"황화 이온",type:"anion"},
+  {base:"CO₃",charge:"2-",ko:"탄산 이온",type:"anion",basic:true},
+  {base:"SO₄",charge:"2-",ko:"황산 이온",type:"anion",basic:true},
+  {base:"PO₄",charge:"3-",ko:"인산 이온",type:"anion"},
+];
+
+function shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function IonFormula({base,charge,size=26}){return <span style={{fontSize:size,fontWeight:800,color:INK,letterSpacing:"-0.01em"}}>{base}<sup style={{fontSize:size*0.6,fontWeight:700}}>{charge}</sup></span>;}
+function buildItems(content,rangeKey){
+  if(content==="element"){
+    const list=ELEMENTS.filter(e=>rangeKey==="basic"?e.num<=20:true).sort((a,b)=>a.num-b.num);
+    return list.map(e=>({id:e.sym,ko:e.ko,alt:e.alt,tip:e.tip,color:CATEGORIES[e.cat].color,sym:<span style={{fontSize:30,fontWeight:800,color:INK}}>{e.sym}</span>,symText:e.sym,el:e,kind:"element"}));
+  }
+  const list=IONS.filter(i=>rangeKey==="basic"?i.basic:true);
+  return list.map(i=>({id:`${i.base}^${i.charge}`,ko:i.ko,alt:i.alt,color:i.type==="cation"?CATION:ANION,sym:<IonFormula base={i.base} charge={i.charge} size={26}/>,symText:`${i.base}${i.charge}`,ion:i,kind:"ion"}));
+}
+function pickWeak(boxes,items){
+  const cands=items.filter(e=>(boxes[e.id]??0)<2); if(!cands.length)return null;
+  const bag=[]; cands.forEach(e=>{const b=boxes[e.id]??0;const w=b===0?5:b===1?2:1;for(let i=0;i<w;i++)bag.push(e.id);});
+  return bag[Math.floor(Math.random()*bag.length)];
+}
+function checkTyped(q,askSymbol,value){
+  if(askSymbol){const norm=value.replace(/\s/g,"");return [q.ko,q.alt].filter(Boolean).some(n=>n.replace(/\s/g,"")===norm);}
+  return value.trim().toLowerCase()===q.symText.toLowerCase();
+}
+
+const btnPrimary={padding:"12px 28px",borderRadius:10,border:"none",cursor:"pointer",background:INK,color:"#fff",fontSize:16,fontWeight:700,fontFamily:"inherit"};
+const btnGhost={padding:"12px 24px",borderRadius:10,cursor:"pointer",background:"#fff",color:"#4A5C6A",fontSize:16,fontWeight:700,border:"1.5px solid #D5DDE2",fontFamily:"inherit"};
+const pill=(on,color=INK)=>({padding:"8px 16px",borderRadius:99,cursor:"pointer",fontFamily:"inherit",fontSize:13,fontWeight:600,border:`1.5px solid ${on?color:"#D5DDE2"}`,background:on?color:"#fff",color:on?"#fff":"#7B8A95"});
+const inputStyle={padding:"10px 12px",borderRadius:9,fontSize:15,fontFamily:"inherit",border:"2px solid #C7D0D6",outline:"none",color:INK,background:"#fff"};
+
+/* ---------- 학습: 원소 ---------- */
+function StudyElements({list,hideNames}){
+  const [revealed,setRevealed]=useState({});
+  const [sel,setSel]=useState(null);
+  const maxP=Math.max(...list.map(e=>e.p)); const CELL=54;
+  const selEl=sel?list.find(e=>e.sym===sel):null;
+  const click=sym=>{setRevealed(r=>({...r,[sym]:!r[sym]}));setSel(sym);};
+  return (
+    <div>
+      <p style={{color:"#4A5C6A",margin:"0 0 14px",fontSize:15}}>실제 주기율표 자리에 배치했어요. <b>💡 표시는 기호와 이름이 헷갈리는 원소</b> — 타일을 누르면 아래에 어원 단서가 나와요.</p>
+      <div style={{overflowX:"auto",paddingBottom:8}}>
+        <div style={{display:"grid",gap:4,minWidth:18*(CELL+4)+30,gridTemplateColumns:`26px repeat(18, ${CELL}px)`,gridTemplateRows:`22px repeat(${maxP}, ${CELL}px)`}}>
+          {Array.from({length:18},(_,i)=><div key={"g"+i} style={{gridColumn:i+2,gridRow:1,textAlign:"center",fontSize:11,color:"#9AA7B0",fontWeight:700,alignSelf:"center"}}>{i+1}</div>)}
+          {Array.from({length:maxP},(_,i)=><div key={"p"+i} style={{gridColumn:1,gridRow:i+2,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#9AA7B0",fontWeight:700}}>{i+1}</div>)}
+          {list.map(e=>{const c=CATEGORIES[e.cat].color;const show=!hideNames||revealed[e.sym];const isSel=sel===e.sym;return (
+            <button key={e.sym} onClick={()=>click(e.sym)} style={{gridColumn:e.g+1,gridRow:e.p+1,borderRadius:8,cursor:"pointer",padding:0,border:`${isSel?3:2}px solid ${c}`,background:isSel?`${c}2e`:`${c}14`,position:"relative",transition:"transform .12s ease",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+              <span style={{position:"absolute",top:3,left:5,fontSize:9,fontWeight:700,color:c,fontFamily:"monospace"}}>{e.num}</span>
+              {e.tip&&<span style={{position:"absolute",top:2,right:4,fontSize:10}}>💡</span>}
+              <span style={{fontSize:20,fontWeight:800,color:INK,lineHeight:1}}>{e.sym}</span>
+              <span style={{fontSize:9,marginTop:2,color:"#4A5C6A",fontWeight:600,minHeight:11,opacity:show?1:0}}>{e.ko}</span>
+            </button>);})}
+        </div>
+      </div>
+      {selEl&&(
+        <div style={{marginTop:16,display:"flex",gap:14,alignItems:"center",padding:16,background:"#fff",border:"1px solid #D5DDE2",borderRadius:12}}>
+          <div style={{width:64,height:64,borderRadius:10,flexShrink:0,border:`2px solid ${CATEGORIES[selEl.cat].color}`,background:`${CATEGORIES[selEl.cat].color}14`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+            <span style={{fontSize:24,fontWeight:800}}>{selEl.sym}</span><span style={{fontSize:9,color:"#7B8A95"}}>{selEl.num}</span>
+          </div>
+          <div>
+            <div style={{fontSize:18,fontWeight:800}}>{selEl.ko}{selEl.alt&&<span style={{fontSize:13,color:"#7B8A95",fontWeight:600}}> · 예전 이름 {selEl.alt}</span>}</div>
+            <div style={{fontSize:13,color:CATEGORIES[selEl.cat].color,fontWeight:700,margin:"2px 0 4px"}}>{CATEGORIES[selEl.cat].label}</div>
+            {selEl.tip?<div style={{fontSize:14,color:INK}}>💡 {selEl.tip}</div>:<div style={{fontSize:13,color:"#9AA7B0"}}>기호와 이름이 잘 연결되는 원소예요.</div>}
+          </div>
+        </div>
+      )}
+      <div style={{display:"flex",flexWrap:"wrap",gap:"8px 16px",marginTop:18}}>
+        {Object.values(CATEGORIES).map(c=><span key={c.label} style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12.5,color:"#4A5C6A"}}><span style={{width:13,height:13,borderRadius:4,background:`${c.color}22`,border:`2px solid ${c.color}`}}/>{c.label}</span>)}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- 학습: 이온 ---------- */
+function StudyIons({list,hideNames}){
+  const [revealed,setRevealed]=useState({});
+  const groups=[{type:"cation",title:"양이온  ＋",color:CATION},{type:"anion",title:"음이온  －",color:ANION}];
+  return (
+    <div>
+      <p style={{color:"#4A5C6A",margin:"0 0 12px",fontSize:15}}>위첨자(＋/－)는 전하, 아래첨자 숫자는 원자 수예요.</p>
+      <div style={{fontSize:13,color:"#4A5C6A",background:"#fff",border:"1px solid #D5DDE2",borderRadius:10,padding:"10px 14px",marginBottom:18}}>💡 <b>음이온 이름 규칙</b> — 원자 하나면 <b>～화 이온</b>(염화·산화·황화), 산소가 붙은 산이면 <b>～산 이온</b>(질산·황산·탄산).</div>
+      <div style={{display:"flex",flexDirection:"column",gap:22}}>
+        {groups.map(grp=>{const items=list.filter(i=>i.ion.type===grp.type);if(!items.length)return null;return (
+          <div key={grp.type}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}><span style={{width:12,height:12,borderRadius:4,background:grp.color}}/><h3 style={{margin:0,fontSize:16,fontWeight:700}}>{grp.title}</h3></div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:10}}>
+              {items.map(it=>{const show=!hideNames||revealed[it.id];return (
+                <button key={it.id} onClick={()=>setRevealed(r=>({...r,[it.id]:!r[it.id]}))} style={{minWidth:104,height:92,borderRadius:12,cursor:"pointer",padding:"0 8px",border:`2px solid ${grp.color}`,background:`${grp.color}12`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+                  <IonFormula base={it.ion.base} charge={it.ion.charge} size={26}/>
+                  <span style={{fontSize:12.5,marginTop:6,color:"#4A5C6A",fontWeight:600,minHeight:15,opacity:show?1:0}}>{it.ko}</span>
+                </button>);})}
+            </div>
+          </div>);})}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- 퀴즈 ---------- */
+function Quiz({items,dir,format,weakFocus,content,seedBoxes,recordResult}){
+  const byId=useMemo(()=>Object.fromEntries(items.map(i=>[i.id,i])),[items]);
+  const [boxes,setBoxes]=useState(()=>{const b={};items.forEach(it=>b[it.id]=seedBoxes[it.id]??0);return b;});
+  const [queue]=useState(()=>shuffle(items.map(i=>i.id)));
+  const [step,setStep]=useState(0);
+  const [qid,setQid]=useState(null);
+  const [askSymbol,setAskSymbol]=useState(true);
+  const [options,setOptions]=useState([]);
+  const [picked,setPicked]=useState(null);
+  const [typed,setTyped]=useState("");
+  const [answered,setAnswered]=useState(null);
+  const [score,setScore]=useState(0);
+  const [done,setDone]=useState(false);
+  const inputRef=useRef(null);
+  const q=qid?byId[qid]:null;
+  const masteredCount=Object.values(boxes).filter(b=>b>=2).length;
+  const total=items.length;
+  const resolveAsk=()=>dir==="mixed"?Math.random()<0.5:dir==="s2n";
+  const setup=id=>{setQid(id);setAskSymbol(resolveAsk());setPicked(null);setTyped("");setAnswered(null);if(format==="mc"){const pool=shuffle(items.filter(e=>e.id!==id)).slice(0,3);setOptions(shuffle([byId[id],...pool]));}};
+  useEffect(()=>{if(weakFocus){const f=pickWeak(boxes,items);f?setup(f):setDone(true);}else setup(queue[0]);},[]);
+  useEffect(()=>{if(format==="typed"&&!answered&&inputRef.current)inputRef.current.focus();},[qid,answered,format]);
+  const commit=ok=>{setAnswered({ok});if(ok)setScore(s=>s+1);setBoxes(b=>{const nb={...b};const c=nb[qid]??0;nb[qid]=ok?Math.min(2,c+1):0;return nb;});recordResult(qid,ok);};
+  const pickMc=o=>{if(answered)return;setPicked(o.id);commit(o.id===qid);};
+  const submitTyped=()=>{if(answered||!typed.trim())return;setPicked(typed);commit(checkTyped(q,askSymbol,typed));};
+  const next=()=>{if(weakFocus){const nx=pickWeak(boxes,items);nx?setup(nx):setDone(true);return;}const ni=step+1;if(ni>=queue.length){setDone(true);return;}setStep(ni);setup(queue[ni]);};
+  const restart=()=>{setScore(0);setDone(false);if(weakFocus){const b={};items.forEach(it=>b[it.id]=0);setBoxes(b);const f=pickWeak(b,items);f&&setup(f);}else{setStep(0);setup(queue[0]);}};
+  if(done){
+    if(weakFocus)return <div style={{textAlign:"center",padding:"40px 16px"}}><div style={{fontSize:30,fontWeight:800}}>정복 완료! 🎉</div><div style={{fontSize:16,color:"#4A5C6A",margin:"10px 0 24px"}}>{total}개를 모두 완료했어요.</div><button onClick={restart} style={btnPrimary}>처음부터 다시</button></div>;
+    const pct=Math.round((score/total)*100);const msg=pct>=90?"원소 박사! 🏆":pct>=70?"잘하고 있어요! 👍":"조금만 더 연습해요 💪";
+    return <div style={{textAlign:"center",padding:"40px 16px"}}><div style={{fontSize:56,fontWeight:800}}>{pct}점</div><div style={{fontSize:17,color:"#4A5C6A",margin:"6px 0 4px"}}>{total}문제 중 {score}문제 정답</div><div style={{fontSize:20,fontWeight:700,margin:"16px 0 24px"}}>{msg}</div><button onClick={restart} style={btnPrimary}>다시 풀기</button></div>;
+  }
+  if(!q)return null;
+  const symLabel=content==="ion"?"화학식":"기호";
+  const correctText=`${q.symText} · ${q.ko}`;
+  return (
+    <div style={{maxWidth:520,margin:"0 auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:12,fontSize:14,color:"#4A5C6A",fontWeight:600}}>
+        <span>{weakFocus?`완료 ${masteredCount} / ${total}`:`${step+1} / ${total}`}</span>
+        <span>{weakFocus?"약점 집중":`점수 ${score}`}</span>
+      </div>
+      <div style={{height:6,background:"#D5DDE2",borderRadius:99,marginBottom:24}}><div style={{height:"100%",borderRadius:99,background:INK,transition:"width .3s ease",width:`${weakFocus?(masteredCount/total)*100:(step/total)*100}%`}}/></div>
+      <div style={{textAlign:"center",marginBottom:20}}>
+        <div style={{fontSize:13,color:"#7B8A95",marginBottom:10}}>{askSymbol?`이 ${symLabel}의 이름은?`:`이것의 ${symLabel}은?`}</div>
+        <div style={{display:"inline-flex",alignItems:"center",justifyContent:"center",minWidth:130,padding:"16px 28px",borderRadius:14,background:`${q.color}14`,border:`2px solid ${q.color}`}}>{askSymbol?<span style={{fontSize:30,fontWeight:800}}>{q.sym}</span>:<span style={{fontSize:26,fontWeight:800}}>{q.ko}</span>}</div>
+      </div>
+      {format==="mc"?(
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          {options.map(o=>{let bg="#fff",border="#D5DDE2",col=INK;if(answered){if(o.id===qid){bg=`${CORRECT}1a`;border=CORRECT;col=CORRECT;}else if(o.id===picked){bg=`${WRONG}1a`;border=WRONG;col=WRONG;}}return (
+            <button key={o.id} onClick={()=>pickMc(o)} disabled={!!answered} style={{padding:"16px 12px",borderRadius:10,cursor:answered?"default":"pointer",border:`2px solid ${border}`,background:bg,color:col,fontSize:18,fontWeight:700,minHeight:56,display:"flex",alignItems:"center",justifyContent:"center"}}>{askSymbol?o.ko:o.sym}</button>);})}
+        </div>
+      ):(
+        <div style={{display:"flex",gap:8,justifyContent:"center"}}>
+          <input ref={inputRef} value={typed} onChange={e=>setTyped(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")(answered?next():submitTyped());}} placeholder={askSymbol?"이름 입력":"기호 입력 (예: Na)"} disabled={!!answered} style={{flex:1,maxWidth:260,padding:"13px 14px",borderRadius:10,fontSize:17,fontFamily:"inherit",border:`2px solid ${answered?(answered.ok?CORRECT:WRONG):"#C7D0D6"}`,outline:"none",background:answered?(answered.ok?`${CORRECT}10`:`${WRONG}10`):"#fff",color:INK}}/>
+          {!answered&&<button onClick={submitTyped} style={{...btnPrimary,padding:"13px 20px"}}>확인</button>}
+        </div>
+      )}
+      {answered&&(
+        <div style={{marginTop:20,textAlign:"center"}}>
+          <div style={{fontSize:15,color:"#4A5C6A",marginBottom:q.tip?6:14}}>{answered.ok?"정답이에요! ✅ ":"아쉬워요. "}정답은 <b style={{color:INK}}>{correctText}</b>{q.alt&&<span style={{color:"#7B8A95"}}> (예전 이름 {q.alt})</span>}</div>
+          {q.tip&&<div style={{fontSize:14,color:INK,marginBottom:14}}>💡 {q.tip}</div>}
+          <button onClick={next} style={btnPrimary}>{(!weakFocus&&step+1>=total)?"결과 보기":"다음 문제"}</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- 순위표 ---------- */
+function Leaderboard({content,duration,room,name,score}){
+  const [rows,setRows]=useState(null);
+  const [submitted,setSubmitted]=useState(false);
+  const [busy,setBusy]=useState(false);
+  const [err,setErr]=useState(null);
+  const roomKey=(room||"공개").trim()||"공개";
+  const load=async()=>{
+    if(!firebaseReady)return;
+    setBusy(true);setErr(null);
+    try{
+      const snap=await db.collection("scores").where("room","==",roomKey).where("content","==",content).where("duration","==",duration).get();
+      let r=snap.docs.map(d=>d.data());
+      r.sort((a,b)=>b.score-a.score);
+      setRows(r.slice(0,10));
+    }catch(e){console.error(e);setErr("순위표를 불러오지 못했어요.");}
+    setBusy(false);
+  };
+  const submit=async()=>{
+    if(!firebaseReady||submitted||!name.trim())return;
+    setBusy(true);setErr(null);
+    try{
+      await db.collection("scores").add({name:name.trim().slice(0,20),room:roomKey.slice(0,20),content,duration,score,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+      setSubmitted(true);await load();
+    }catch(e){console.error(e);setErr("등록에 실패했어요. 보안 규칙을 확인해 주세요.");}
+    setBusy(false);
+  };
+  useEffect(()=>{if(firebaseReady)load();},[]);
+  if(!firebaseReady)return <div style={{marginTop:24,padding:"14px 16px",background:"#fff",border:"1px dashed #C7D0D6",borderRadius:12,fontSize:13.5,color:"#7B8A95",textAlign:"center"}}>🏅 반 순위표는 <b>Firebase 설정 + 배포 후</b> 작동합니다. (지금은 미리보기 상태)</div>;
+  return (
+    <div style={{marginTop:24,padding:"16px",background:"#fff",border:"1px solid #D5DDE2",borderRadius:12}}>
+      <div style={{fontSize:15,fontWeight:800,marginBottom:10}}>🏅 반 순위표 <span style={{fontSize:12,color:"#7B8A95",fontWeight:600}}>({content==="ion"?"이온":"원소"} · {duration}초 · {roomKey})</span></div>
+      {!submitted?(
+        <div style={{display:"flex",gap:8,justifyContent:"center",marginBottom:12}}>
+          <button onClick={submit} disabled={busy||!name.trim()} style={{...btnPrimary,padding:"10px 20px",opacity:(busy||!name.trim())?0.5:1}}>{name.trim()?`${name.trim()} (으)로 ${score}점 등록`:"이름을 먼저 입력하세요"}</button>
+        </div>
+      ):<div style={{textAlign:"center",fontSize:13,color:CORRECT,fontWeight:700,marginBottom:10}}>등록 완료! ✅</div>}
+      {err&&<div style={{textAlign:"center",fontSize:13,color:WRONG,marginBottom:10}}>{err}</div>}
+      {busy&&!rows&&<div style={{textAlign:"center",fontSize:13,color:"#9AA7B0"}}>불러오는 중…</div>}
+      {rows&&(rows.length?(
+        <div style={{display:"flex",flexDirection:"column",gap:4}}>
+          {rows.map((r,i)=>{const me=r.name===name.trim()&&submitted;return (
+            <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:8,background:me?`${CATION}12`:i<3?"#F6F8F9":"transparent",fontWeight:me?800:600}}>
+              <span style={{width:24,textAlign:"center",fontWeight:800,color:i===0?"#E0A93D":i===1?"#9AA7B0":i===2?"#C08457":"#7B8A95"}}>{i+1}</span>
+              <span style={{flex:1,fontSize:15,color:INK}}>{r.name}</span>
+              <span style={{fontSize:15,fontWeight:800,color:INK}}>{r.score}</span>
+            </div>);})}
+        </div>
+      ):<div style={{textAlign:"center",fontSize:13,color:"#9AA7B0"}}>아직 기록이 없어요. 첫 주자가 되어보세요!</div>)}
+      <div style={{textAlign:"center",marginTop:10}}><button onClick={load} style={{...btnGhost,padding:"7px 16px",fontSize:13}}>새로고침</button></div>
+    </div>
+  );
+}
+
+/* ---------- 스피드전 ---------- */
+function SpeedQuiz({items,dir,content,recordResult,best,setBest,name,setName,room,setRoom}){
+  const [phase,setPhase]=useState("setup");
+  const [duration,setDuration]=useState(60);
+  const [timeLeft,setTimeLeft]=useState(60);
+  const [score,setScore]=useState(0);
+  const [streak,setStreak]=useState(0);
+  const [q,setQ]=useState(null);
+  const [options,setOptions]=useState([]);
+  const [askSymbol,setAskSymbol]=useState(true);
+  const [flash,setFlash]=useState(null);
+  const adv=useRef(null);
+  const makeQ=()=>{const t=items[Math.floor(Math.random()*items.length)];const pool=shuffle(items.filter(e=>e.id!==t.id)).slice(0,3);setQ(t);setOptions(shuffle([t,...pool]));setAskSymbol(dir==="mixed"?Math.random()<0.5:dir==="s2n");setFlash(null);};
+  const start=()=>{setScore(0);setStreak(0);setTimeLeft(duration);setPhase("play");makeQ();};
+  useEffect(()=>{if(phase!=="play")return;if(timeLeft<=0){setPhase("over");setBest(b=>Math.max(b||0,score));return;}const t=setTimeout(()=>setTimeLeft(s=>s-1),1000);return()=>clearTimeout(t);},[phase,timeLeft]);
+  useEffect(()=>()=>clearTimeout(adv.current),[]);
+  const pick=o=>{if(flash||phase!=="play")return;const ok=o.id===q.id;recordResult(q.id,ok);if(ok){setScore(s=>s+1);setStreak(s=>s+1);setFlash("ok");}else{setStreak(0);setFlash("no");}adv.current=setTimeout(makeQ,320);};
+  if(phase==="setup"){
+    return (
+      <div style={{textAlign:"center",padding:"22px 16px",maxWidth:460,margin:"0 auto"}}>
+        <h3 style={{margin:"0 0 6px",fontSize:22,fontWeight:800}}>⚡ 스피드전</h3>
+        <p style={{color:"#4A5C6A",margin:"0 0 20px",fontSize:15}}>제한시간 동안 최대한 많이 맞혀 순위표에 올려요!</p>
+        <div style={{display:"flex",gap:8,justifyContent:"center",marginBottom:16,flexWrap:"wrap"}}>
+          <input value={name} onChange={e=>setName(e.target.value)} placeholder="이름" maxLength={20} style={{...inputStyle,width:120}}/>
+          <input value={room} onChange={e=>setRoom(e.target.value)} placeholder="반 코드(예: 3-2)" maxLength={20} style={{...inputStyle,width:140}}/>
+        </div>
+        <div style={{fontSize:13,color:"#7B8A95",marginBottom:10}}>제한시간 선택</div>
+        <div style={{display:"flex",gap:8,justifyContent:"center",marginBottom:24}}>
+          {[30,60,90].map(d=><button key={d} onClick={()=>setDuration(d)} style={{padding:"12px 22px",borderRadius:10,cursor:"pointer",fontFamily:"inherit",fontSize:16,fontWeight:700,border:`2px solid ${duration===d?INK:"#D5DDE2"}`,background:duration===d?INK:"#fff",color:duration===d?"#fff":"#7B8A95"}}>{d}초</button>)}
+        </div>
+        {best>0&&<div style={{fontSize:14,color:"#4A5C6A",marginBottom:18}}>현재 최고 기록 🏅 <b style={{color:INK}}>{best}점</b></div>}
+        <div><button onClick={start} style={btnPrimary}>시작하기</button></div>
+      </div>
+    );
+  }
+  if(phase==="over"){
+    const isRec=score>=(best||0)&&score>0;
+    return (
+      <div style={{textAlign:"center",padding:"30px 16px"}}>
+        {isRec&&<div style={{fontSize:16,color:CORRECT,fontWeight:700,marginBottom:6}}>🎉 새로운 최고 기록!</div>}
+        <div style={{fontSize:60,fontWeight:800}}>{score}<span style={{fontSize:22,color:"#7B8A95"}}>개 정답</span></div>
+        <div style={{fontSize:15,color:"#4A5C6A",margin:"8px 0 20px"}}>최고 기록 🏅 {Math.max(best||0,score)}점 · {duration}초</div>
+        <div style={{display:"flex",gap:10,justifyContent:"center"}}>
+          <button onClick={start} style={btnPrimary}>다시 도전</button>
+          <button onClick={()=>setPhase("setup")} style={btnGhost}>설정 바꾸기</button>
+        </div>
+        <div style={{maxWidth:420,margin:"0 auto"}}><Leaderboard content={content} duration={duration} room={room} name={name} score={score}/></div>
+      </div>
+    );
+  }
+  const low=timeLeft<=10;
+  return (
+    <div style={{maxWidth:520,margin:"0 auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+        <span style={{fontSize:22,fontWeight:800}}>{score}<span style={{fontSize:13,color:"#7B8A95",fontWeight:600}}> 점</span></span>
+        {streak>=3&&<span style={{fontSize:13,fontWeight:700,color:CATION}}>🔥 연속 {streak}</span>}
+        <span style={{fontSize:22,fontWeight:800,color:low?WRONG:INK,fontFamily:"monospace"}}>{timeLeft}s</span>
+      </div>
+      <div style={{height:6,background:"#D5DDE2",borderRadius:99,marginBottom:22}}><div style={{height:"100%",borderRadius:99,background:low?WRONG:INK,transition:"width 1s linear",width:`${(timeLeft/duration)*100}%`}}/></div>
+      <div style={{textAlign:"center",marginBottom:18}}>
+        <div style={{fontSize:12,color:"#7B8A95",marginBottom:8}}>{askSymbol?"이름은?":(content==="ion"?"화학식은?":"기호는?")}</div>
+        <div style={{display:"inline-flex",alignItems:"center",justifyContent:"center",minWidth:120,padding:"14px 26px",borderRadius:14,background:flash==="ok"?`${CORRECT}1a`:flash==="no"?`${WRONG}1a`:`${q.color}14`,border:`2px solid ${flash==="ok"?CORRECT:flash==="no"?WRONG:q.color}`,transition:"all .15s ease"}}>{askSymbol?<span style={{fontSize:28,fontWeight:800}}>{q.sym}</span>:<span style={{fontSize:24,fontWeight:800}}>{q.ko}</span>}</div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        {options.map(o=>{let bg="#fff",border="#D5DDE2";if(flash&&o.id===q.id){bg=`${CORRECT}1a`;border=CORRECT;}return (
+          <button key={o.id} onClick={()=>pick(o)} style={{padding:"15px 12px",borderRadius:10,cursor:"pointer",border:`2px solid ${border}`,background:bg,color:INK,fontSize:18,fontWeight:700,minHeight:54,display:"flex",alignItems:"center",justifyContent:"center"}}>{askSymbol?o.ko:o.sym}</button>);})}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- 순서 암기 ---------- */
+function OrderMode({list}){
+  const sorted=useMemo(()=>[...list].sort((a,b)=>a.num-b.num),[list]);
+  const [placed,setPlaced]=useState([]);
+  const [tiles,setTiles]=useState(()=>shuffle(sorted));
+  const [wrong,setWrong]=useState(null);
+  const [mistakes,setMistakes]=useState(0);
+  const [hint,setHint]=useState(false);
+  const nextIdx=placed.length;const target=sorted[nextIdx];const done=nextIdx>=sorted.length;
+  const placedSet=useMemo(()=>new Set(placed),[placed]);
+  const click=el=>{if(done||placedSet.has(el.sym))return;if(el.sym===target.sym)setPlaced(p=>[...p,el.sym]);else{setWrong(el.sym);setMistakes(m=>m+1);setTimeout(()=>setWrong(null),350);}};
+  const reset=()=>{setPlaced([]);setTiles(shuffle(sorted));setMistakes(0);setWrong(null);};
+  return (
+    <div>
+      <p style={{color:"#4A5C6A",margin:"0 0 12px",fontSize:15}}>원자번호 <b>순서대로</b> 눌러 보세요. 1~{sorted.length}번을 차례로!</p>
+      <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:16}}>
+        {!done?<div style={{fontSize:15,fontWeight:700}}>다음 순서: <span style={{color:CATION}}>{nextIdx+1}번째</span></div>:<div style={{fontSize:17,fontWeight:800,color:CORRECT}}>완료! 🎉 실수 {mistakes}회</div>}
+        <span style={{fontSize:13,color:"#7B8A95"}}>실수 {mistakes}회</span>
+        <button onClick={()=>setHint(h=>!h)} style={pill(hint)}>{hint?"힌트 끄기":"힌트 보기"}</button>
+        <button onClick={reset} style={btnGhost}>다시 섞기</button>
+      </div>
+      {hint&&!done&&<div style={{fontSize:14,color:INK,background:"#fff",border:"1px solid #D5DDE2",borderRadius:10,padding:"10px 14px",marginBottom:14}}>다음은 <b>{target.ko}</b> ({target.sym})</div>}
+      <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+        {tiles.map(el=>{const isPlaced=placedSet.has(el.sym);const order=isPlaced?placed.indexOf(el.sym)+1:null;const isWrong=wrong===el.sym;const c=CATEGORIES[el.cat].color;return (
+          <button key={el.sym} onClick={()=>click(el)} disabled={isPlaced} style={{width:62,height:62,borderRadius:10,cursor:isPlaced?"default":"pointer",position:"relative",border:`2px solid ${isWrong?WRONG:isPlaced?CORRECT:c}`,background:isWrong?`${WRONG}1a`:isPlaced?`${CORRECT}14`:"#fff",display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <span style={{fontSize:22,fontWeight:800,color:isPlaced?"#9AB5A6":INK}}>{el.sym}</span>
+            {isPlaced&&<span style={{position:"absolute",top:2,left:4,fontSize:10,fontWeight:700,color:CORRECT}}>{order}</span>}
+          </button>);})}
+      </div>
+      <div style={{marginTop:16,fontSize:12.5,color:"#9AA7B0"}}>암기 리듬(전통): 수·헬·리·베·붕·탄·질·산·플·네 / 나·마·알·규·인·황·염·아 / 칼·칼</div>
+    </div>
+  );
+}
+
+/* ---------- 성취도 ---------- */
+function ProgressMode({items,progress}){
+  const stats=items.map(it=>{const p=progress[it.id]||{seen:0,correct:0,box:0};let level="unseen";if(p.seen>0)level=(p.box??0)>=2?"mastered":"learning";return {it,...p,level};});
+  const count=lv=>stats.filter(s=>s.level===lv).length;
+  const lc=lv=>lv==="mastered"?CORRECT:lv==="learning"?"#E8943A":"#C7D0D6";
+  return (
+    <div>
+      <div style={{display:"flex",gap:12,marginBottom:22,flexWrap:"wrap"}}>
+        <StatCard label="완료" value={count("mastered")} color={CORRECT}/>
+        <StatCard label="연습 중" value={count("learning")} color="#E8943A"/>
+        <StatCard label="미학습" value={count("unseen")} color="#7B8A95"/>
+      </div>
+      <p style={{color:"#4A5C6A",fontSize:14,margin:"0 0 14px"}}>퀴즈·스피드전을 풀면 채워져요. <b style={{color:CORRECT}}>초록</b>은 완료(연속 2회 정답), <b style={{color:"#E8943A"}}>주황</b>은 연습 중. 약점 집중 모드가 약한 것부터 출제합니다.</p>
+      <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+        {stats.map(s=><div key={s.it.id} style={{minWidth:78,height:78,padding:"0 6px",borderRadius:9,border:`2px solid ${lc(s.level)}`,background:s.level==="unseen"?"#fff":`${lc(s.level)}14`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}><span style={{display:"flex",alignItems:"center",justifyContent:"center"}}>{s.it.sym}</span><span style={{fontSize:11,color:"#7B8A95",marginTop:3}}>{s.seen?`${s.correct}/${s.seen}`:"—"}</span></div>)}
+      </div>
+    </div>
+  );
+}
+function StatCard({label,value,color}){return <div style={{flex:"1 1 90px",minWidth:90,padding:"14px 16px",borderRadius:12,background:"#fff",border:"1px solid #D5DDE2"}}><div style={{fontSize:30,fontWeight:800,color}}>{value}</div><div style={{fontSize:13,color:"#4A5C6A",fontWeight:600}}>{label}</div></div>;}
+
+/* ---------- 앱 ---------- */
+function App(){
+  const [content,setContent]=useState("element");
+  const [rangeKey,setRangeKey]=useState("basic");
+  const [mode,setMode]=useState("study");
+  const [dir,setDir]=useState("mixed");
+  const [format,setFormat]=useState("mc");
+  const [weakFocus,setWeakFocus]=useState(false);
+  const [hideNames,setHideNames]=useState(false);
+  const [progress,setProgress]=useState({});
+  const [speedBest,setSpeedBest]=useState({element:0,ion:0});
+  const [name,setName]=useState("");
+  const [room,setRoom]=useState("");
+  const items=useMemo(()=>buildItems(content,rangeKey),[content,rangeKey]);
+  const elementList=useMemo(()=>ELEMENTS.filter(e=>rangeKey==="basic"?e.num<=20:true).sort((a,b)=>a.num-b.num),[rangeKey]);
+  const orderList=useMemo(()=>ELEMENTS.filter(e=>e.num<=20),[]);
+  const seedBoxes=useMemo(()=>{const b={};Object.entries(progress).forEach(([k,v])=>b[k]=v.box??0);return b;},[progress]);
+  const recordResult=(id,ok)=>setProgress(p=>{const cur=p[id]||{seen:0,correct:0,box:0};const box=ok?Math.min(2,(cur.box||0)+1):0;return {...p,[id]:{seen:cur.seen+1,correct:cur.correct+(ok?1:0),box}};});
+  const effFormat=content==="ion"?"mc":format;
+  const TABS=[{key:"study",label:"학습"},{key:"quiz",label:"퀴즈"},{key:"speed",label:"⚡ 스피드전"},{key:"order",label:"순서암기"},{key:"progress",label:"성취도"}];
+  const rangeLabel=content==="element"?{basic:"기본 1~20",full:"확장"}:{basic:"기본 이온",full:"전체 이온"};
+  const boxed=mode==="quiz"||mode==="speed";
+  return (
+    <div style={{fontFamily:"'Noto Sans KR', system-ui, sans-serif",background:PAPER,minHeight:"100%",padding:"24px 20px 48px",color:INK}}>
+      <div style={{maxWidth:760,margin:"0 auto"}}>
+        <header style={{marginBottom:18}}>
+          <h1 style={{fontFamily:"'Black Han Sans', sans-serif",fontSize:38,margin:0,lineHeight:1.1}}>원소기호 마스터</h1>
+          <p style={{margin:"6px 0 0",color:"#4A5C6A",fontSize:15}}>주기율표로 외우고 · 이온 심화 · 약점 집중 · 스피드전 · 순서암기</p>
+        </header>
+        <div style={{display:"inline-flex",background:"#fff",borderRadius:12,padding:4,border:"1px solid #D5DDE2",marginBottom:16}}>
+          {[{k:"element",l:"원소"},{k:"ion",l:"이온 심화"}].map(o=><button key={o.k} onClick={()=>setContent(o.k)} style={{padding:"9px 22px",borderRadius:9,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:15,fontWeight:700,background:content===o.k?(o.k==="ion"?CATION:INK):"transparent",color:content===o.k?"#fff":"#4A5C6A"}}>{o.l}</button>)}
+        </div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:12,alignItems:"center",marginBottom:16,justifyContent:"space-between"}}>
+          <div style={{display:"inline-flex",background:"#fff",borderRadius:12,padding:4,border:"1px solid #D5DDE2",flexWrap:"wrap"}}>
+            {TABS.map(t=><button key={t.key} onClick={()=>setMode(t.key)} style={{padding:"9px 14px",borderRadius:9,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:14,fontWeight:700,background:mode===t.key?INK:"transparent",color:mode===t.key?"#fff":"#4A5C6A"}}>{t.label}</button>)}
+          </div>
+          {mode!=="order"&&<div style={{display:"flex",gap:8}}>{["basic","full"].map(k=><button key={k} onClick={()=>setRangeKey(k)} style={{padding:"8px 14px",borderRadius:8,cursor:"pointer",fontFamily:"inherit",fontSize:13,fontWeight:600,border:`1.5px solid ${rangeKey===k?INK:"#D5DDE2"}`,background:rangeKey===k?`${INK}0d`:"#fff",color:rangeKey===k?INK:"#7B8A95"}}>{rangeLabel[k]}</button>)}</div>}
+        </div>
+        {(mode==="quiz"||mode==="speed")&&<div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>{[{k:"s2n",l:content==="ion"?"화학식 → 이름":"기호 → 이름"},{k:"n2s",l:content==="ion"?"이름 → 화학식":"이름 → 기호"},{k:"mixed",l:"섞어서"}].map(o=><button key={o.k} onClick={()=>setDir(o.k)} style={pill(dir===o.k)}>{o.l}</button>)}</div>}
+        {mode==="quiz"&&<div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap",alignItems:"center"}}>{content==="element"&&[{k:"mc",l:"객관식"},{k:"typed",l:"직접 입력"}].map(o=><button key={o.k} onClick={()=>setFormat(o.k)} style={pill(format===o.k)}>{o.l}</button>)}<button onClick={()=>setWeakFocus(v=>!v)} style={pill(weakFocus,CATION)}>약점 집중 {weakFocus?"ON":"OFF"}</button>{content==="ion"&&<span style={{fontSize:12,color:"#9AA7B0"}}>이온은 객관식으로 진행돼요</span>}</div>}
+        {mode==="study"&&<div style={{marginBottom:16}}><button onClick={()=>setHideNames(v=>!v)} style={pill(hideNames)}>{hideNames?"이름 가린 상태 · 타일 눌러 확인":"이름 가리고 스스로 테스트"}</button></div>}
+        <main style={{background:boxed?"#fff":"transparent",borderRadius:16,padding:boxed?"26px 22px":0,border:boxed?"1px solid #D5DDE2":"none"}}>
+          {mode==="study"&&content==="element"&&<StudyElements key={rangeKey} list={elementList} hideNames={hideNames}/>}
+          {mode==="study"&&content==="ion"&&<StudyIons key={rangeKey} list={items} hideNames={hideNames}/>}
+          {mode==="quiz"&&<Quiz key={`${content}-${rangeKey}-${dir}-${effFormat}-${weakFocus}`} items={items} dir={dir} format={effFormat} weakFocus={weakFocus} content={content} seedBoxes={seedBoxes} recordResult={recordResult}/>}
+          {mode==="speed"&&<SpeedQuiz key={`${content}-${rangeKey}`} items={items} dir={dir} content={content} recordResult={recordResult} best={speedBest[content]} setBest={fn=>setSpeedBest(b=>({...b,[content]:typeof fn==="function"?fn(b[content]):fn}))} name={name} setName={setName} room={room} setRoom={setRoom}/>}
+          {mode==="order"&&<OrderMode list={orderList}/>}
+          {mode==="progress"&&<ProgressMode items={items} progress={progress}/>}
+        </main>
+        <footer style={{marginTop:26,fontSize:12,color:"#9AA7B0",textAlign:"center"}}>명칭은 대한화학회 권장 표기 기준 · 어원 단서는 💡 표시 원소에 · 개인 진행 기록은 새로고침 전까지 유지 · 순위표는 Firebase에 저장됩니다.</footer>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
